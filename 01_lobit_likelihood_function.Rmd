@@ -1,0 +1,108 @@
+---
+title: "01_lobit_likelihood_function"
+author: "Miles Williams"
+date: "June 11, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T,
+                      message = F,
+                      warning = F)
+```
+
+This file contains the routine for estimating a *logistic Tobit* model ("lobit" for short).
+
+A *lobit* model is a combination of a logistic regression (logit) model and a normal or Gaussian model, much in the same way the traditional Tobit model is a combination of a probit and a normal model. The follow routine allows a `R` user to estimate such a model.
+
+```{r load libraries}
+library(tidyverse)
+```
+
+
+### 1. Construct the lobit function:
+```{r lobit link function}
+# logit link for censored observations:
+logit_link = function(x) 1 - 1/(exp(x)+ 1) 
+
+# gaussian link for uncensored observations:
+gauss_link = function(x) dnorm(x) 
+
+# lobit likelihood function with parameters beta and sigma:
+lobit_fun = function(
+  y, # Vector of N outcome values
+  X, # Matrix with N rows and K + 1 columns for K covariates and 1 constant
+  b  # Vector of K + 2 parameters 
+) {
+  betas = b[1:ncol(X)] # beta parameters
+  sigma = exp(b[ncol(X)+1]) # variance parameter (exponentiated to keep values > 0)
+  fit   = X%*%betas    # linear predictor
+  D     = y>0          # dummy for uncensored outcomes
+  
+  # The log-likelihood function:
+  ll = sum(log((1 - logit_link(fit))^(1 - D) *
+    (gauss_link((y - fit)/sigma)/sigma)^D))       
+  
+  # Return the negative log-likelihood 
+    return(-ll) 
+} # End lobit function
+```
+
+### 2. Write the optimizing routine:
+```{r lobit optimizer}
+lobit = function(
+  y, # Vector of observations
+  X  # Matrix of covariates
+) {
+  # Use iterative numerical optimizer:
+  out = optim(
+    fn = lobit_fun,  # specify lobit function as objective function to be minimized
+    y  = y,          # include outcome values
+    X  = cbind(1,X), # include covariate matrix with constant
+    par = rep(0,len=ncol(X)+2), # set starting values for parameters
+    hessian = TRUE,  # generate a hessian matrix
+    method = "BFGS", # use BFGS algorithm
+    control = list(REPORT = 10, # specifications for optimization routine
+                   trace = 1, 
+                   maxit = 100000)
+  )
+  
+  # Estimate the variance-covariance matrix
+  vcov = try(as.matrix(solve(out$hessian, 
+                             tol=1e-24)), T)
+  
+  # Create summary of output
+  sum = data.frame(
+    # Variable names
+    term = c('(Intercept)',colnames(X),'Log(scale)'),
+    
+    # Parameter estimates
+    estimate=out$par,
+    
+    # Standard errors
+    std.error = sqrt(diag(vcov)),
+    
+    # Test statistics
+    statistic = out$par/sqrt(diag(vcov)),
+    
+    # p-values
+    p.value = round(2*pnorm(abs(out$par/
+                                  sqrt(diag(vcov))),
+                            lower.tail=FALSE),4)
+  )
+  
+  # Generate fitted values (useful for testing model fit)
+  fit = cbind(1,X)%*%sum$estimate[1:(ncol(X)+1)]
+  
+  # Return output
+  return(
+    list(
+      sum=sum,
+      fit=fit
+    )
+  )
+}  # End lobit function
+```
+
+
+
