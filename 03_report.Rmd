@@ -31,4 +31,32 @@ Adopting a logit link function in lieu of a probit link function is straightforw
 $$L = \prod_i\left[1 - \frac{e^{X'\beta}}{1 + e^{X'\beta}}\right]^{1-D_i} \left[ \sigma^{-1}\varphi\left( \frac{y_i - X'\beta}{\sigma} \right)\right]^{D_i}: y_i \geq 0 \tag{4}$$
 
 
+# A Simple Comparison
+I conduct a simple simulation to demonstrate the functionality of the lobit model vis-$\grave{\text{a}}$-vis Tobit. I begin by generating a $N \times K$ matrix of random covariates, $\mathbf{X}$, which has $N = 300$ rows, denoting 300 observations, and $K = 4$ columns, denoting one constant (the first column) and 3 random covariates with $\mu = 0$ and $\sigma = 1$. 
 
+I then generate values for a *latent* outcome variable, $y^*$, via the following data generating process:
+$$y_i^* = \mathbf{X}\boldsymbol{\beta} + \epsilon_i: \epsilon_i \sim N(0,\sigma)\tag{5}$$
+where I specify $\boldsymbol{\beta}$ as a $K \times 1$ matrix of linear predictor parameters. I specify $\beta$ parameters as 1, 0.3, -2, and 3. Subscript $i$ denotes the $i^{th}$ observation.
+
+With the d.g.p. for the latent outcome defined, I specify the *observed* outcome $y_i$ as:
+$$
+y_i = 
+\begin{cases}
+ y_i^* & \text{if} \quad y_i^* > 0\\
+ 0 & \text{if} \quad y_i^* \leq 0
+\end{cases}.
+$$
+This results in a censored outcome with a disproportionate number of observations with $y = 0$.
+
+With simulated censored outcome in hand, we can compare how well Tobit and lobit allow us to correctly generate estimates of $\boldsymbol{\beta}$ used to generate the *latent* outcome as given in equation 5. To do this I simply estimate an OLS model where $y_i^*$ is regressed on $\mathbf{X}$ and compare the model summary to Tobit and lobit estimates where $y_i$ is regressed on $\mathbf{X}$.
+
+Results are shown in Figures 1 and 2. Figure 1 shows coefficient estimates for parameters of interest. 95 percent confidence intervals are shown. Plain to the eye is the close similarity between latent model estimates and those obtained via Tobit and lobit. For reference, I have included results from an OLS model where $y_i$ is regressed on $\mathbf{X}$. This model clearly demonstrates the bias inherent to least squares estimation of the linear association between covariates and a censored outcome.
+
+![Coefficient plot of Tobit, lobit, OLS, and latent model estimates. 95 percent confidence intervals shown.](coef_plot.pdf)
+
+The matter that most concerns us is the relative performance of lobit and Tobit. The results from the simulation reveal little difference in the parameter estimates provided by each estimator. Comparing linear predictions with $y_i^*$ reveals similar consistency. Figure 2 shows the loess line for $y_i^*$ over fitted values given by Tobit, lobit, OLS, and latent models. The loess curve nearly completely overlaps for Tobit, lobit, and latent models. Compare this to OLS, which clearly predicts the latent outcome poorly relative to either Tobit or lobit.
+
+![Predicting the *latent* outcome with *observed* data. The relative performance of Tobit, lobit, and OLS estimates.](smooth_plot.pdf)
+
+# Summary
+The lobit model, at least in this preliminary trial, performs quite well, comparable to the more classic Tobit model. I suspect that preference for either estimator will follow logic similar to the perennial logit vs. probit debate (both work well, so go with the one you prefer). For logit adherents, the draw centers on the ease of interpretation of linear coefficients. Probit coefficients do not have a direct interpretation, whereas logit estimates may be interpreted as the linear effect of a covariate on the logged odds of an outcome being 1. Similarly, while Tobit and lobit estimates may be rightly interpreted as the linear effect of a covariate on a latent outcome, they also may be interpreted as the linear effect of a covariate on uncensored values of the outcome *weighted* by the probability of the outcome being greater than zero (at least in the classic case where the outcome is restricted to values greater than or equal to zero). In the case of lobit, the probability component of the likelihood function models the linear effect of a predictor on the logged odds of a censored outcome taking a value greater than zero. This adds more sense than nonsense when a researcher draws substantive conclusions about the relationship between covariates and a censored outcome.

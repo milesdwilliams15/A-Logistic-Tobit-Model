@@ -69,6 +69,13 @@ lm(
   data = df
 ) -> 
   ols_model
+
+# EStimate latent ols model for comparison
+lm(
+  y ~ x1 + x2 + x3,
+  data = df
+) -> 
+  censored_model
 ```
 
 
@@ -80,9 +87,11 @@ rbind(
   lobit_model$sum %>%
     mutate(model="Lobit"),
   broom::tidy(ols_model) %>%
-    mutate(model="OLS")
+    mutate(model="OLS"),
+  broom::tidy(censored_model) %>%
+    mutate(model="Latent OLS")
 ) %>%
-  dwplot() +
+  dwplot(show_intercept = T) +
   geom_vline(xintercept=0) +
   theme_classic() +
   scale_x_continuous(
@@ -92,19 +101,23 @@ rbind(
     x = "Coefficient Estimate\n(95% CIs shown)",
     color = ""
   ) +
-  ggsave('coef_plot.pdf')
+  theme(text=element_text(family='serif')) +
+  ggsave('coef_plot.pdf',
+         units = 'in',
+         height = 3,
+         width = 6)
 ```
 
 ### Compare model fit with actual latent outcome:
 ```{r make smooth plot}
 df %>%
   mutate(
-    tobit_fit = fitted(tobit_model),
-    lobit_fit = lobit_model$fit,
-    ols_fit = fitted(ols_model),
-    latent_fit = fitted(lm(y ~ x1 + x2 + x3, data = df))
+    Tobit = fitted(tobit_model),
+    Lobit = lobit_model$fit,
+    OLS = fitted(ols_model),
+    Latent = fitted(censored_model)
   ) %>%
-  gather('tobit_fit','lobit_fit','ols_fit','latent_fit',
+  gather('Tobit','Lobit','OLS','Latent',
     key = "Model",
     value = "Prediction"
   ) %>%
@@ -123,6 +136,10 @@ df %>%
     y = "Latent Outcome"
   ) +
   theme_classic() +
-  ggsave('smooth_plot.pdf')
+  theme(text=element_text(family='serif')) +
+  ggsave('smooth_plot.pdf',
+         units = 'in',
+         height = 3,
+         width = 6)
 ```
 
